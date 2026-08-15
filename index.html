@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Klassplacering – Fribergaskolan</title>
+<title>Klassfix.se – Fribergaskolan</title>
 <style>
 :root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#64748b;--line:#dbe2ea;--blue:#2563eb;--green:#16a34a;--red:#dc2626}
 *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
@@ -395,7 +395,7 @@ header{
 </style>
 </head>
 <body>
-<header><div class="copy">Copyright Fribergaskolan 2026</div><h1>Klassplacering</h1><p>Klasser, placeringar och elevgrupper på ett ställe.</p></header>
+<header><div class="copy">Copyright Fribergaskolan 2026</div><h1>Klassfix.se</h1><p>Klasser, placeringar och elevgrupper på ett ställe.</p></header>
 <div class="app">
 <aside class="sidebar">
 
@@ -478,7 +478,7 @@ header{
 
 <main class="main">
   <div class="workspace-head">
-    <div><div class="title" id="placementTitle">Klassplacering</div><div class="subtitle" id="placementSubtitle">Klassrum standard</div></div>
+    <div><div class="title" id="placementTitle">Klassfix.se</div><div class="subtitle" id="placementSubtitle">Klassrum standard</div></div>
     <div class="workspace-actions row"><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
   </div>
   <div class="saved-row" style="max-width:520px;margin-top:8px"><select id="savedPlacements"><option value="">– Sparade placeringar –</option></select><button class="btn secondary" id="loadPlacement">Ladda</button></div>
@@ -708,7 +708,7 @@ function changeSeats(){
   for(let i=0;i<5000;i++){const a=candidate();let s=wishPenalty(a)*100;Object.entries(a).forEach(([id,n])=>{if(old[id]===n)s+=50;(neighbors(a)[n]||new Set()).forEach(x=>{if(oldN[n]?.has(x))s+=5})});if(s<score){score=s;best=a;if(s===0)break}}
   assignments=best;renderRoom();status('Nya platser skapades med hänsyn till önskemålen.')
 }
-function updateTitle(){$('placementTitle').textContent=currentClassName?`Klass ${currentClassName}`:'Klassplacering';$('placementSubtitle').textContent=cfg.name||'Klassrum'}
+function updateTitle(){$('placementTitle').textContent=currentClassName?`Klass ${currentClassName}`:'Klassfix.se';$('placementSubtitle').textContent=cfg.name||'Klassrum'}
 function refreshPlacements(){const d=getStore(KEYS.placements),s=$('savedPlacements'),cur=s.value;s.innerHTML='<option value="">– Sparade placeringar –</option>';Object.keys(d).sort((a,b)=>a.localeCompare(b,'sv')).forEach(n=>s.add(new Option(n,n)));if(d[cur])s.value=cur}
 function savePlacement(){
   if(!Object.keys(assignments).length)return status('Skapa en placering först.',true);
