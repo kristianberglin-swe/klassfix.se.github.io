@@ -481,7 +481,11 @@ header{
     <div><div class="title" id="placementTitle">Klassplacering</div><div class="subtitle" id="placementSubtitle">Klassrum Friberga</div></div>
     <div class="workspace-actions row"><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
   </div>
-  <div class="saved-row" style="max-width:520px;margin-top:8px"><select id="savedPlacements"><option value="">– Sparade placeringar –</option></select><button class="btn secondary" id="loadPlacement">Ladda</button></div>
+  <div class="saved-row" style="max-width:680px;margin-top:8px;grid-template-columns:1fr auto auto">
+    <select id="savedPlacements"><option value="">– Sparade placeringar –</option></select>
+    <button class="btn secondary" id="loadPlacement">Ladda</button>
+    <button class="btn danger" id="deletePlacement">Radera</button>
+  </div>
   <div class="room-wrap"><div class="room" id="room"></div></div>
 </main>
 </div>
@@ -764,6 +768,18 @@ function loadPlacement(){
   status(`Placeringen "${n}" laddades.`);
 }
 function printPlacement(){$('groupPanel').classList.remove('printing');window.print()}
+function deletePlacement(){
+  const name=$('savedPlacements').value;
+  if(!name)return status('Välj en sparad placering att radera.',true);
+  if(!confirm(`Vill du verkligen radera placeringen "${name}"?`))return;
+  const data=getStore(KEYS.placements);
+  delete data[name];
+  setStore(KEYS.placements,data);
+  assignments={};
+  renderRoom();
+  refreshPlacements();
+  status(`Placeringen "${name}" raderades.`);
+}
 
 function createGroups(){
   if(!students.length)return status('Ladda en klass först.',true);const count=Math.min(students.length,Math.max(2,+$('groupCount').value||2)),groups=Array.from({length:count},()=>[]),ns=shuffle(students),assigned=new Set();
@@ -775,7 +791,18 @@ function renderGroups(){const b=$('groups');b.innerHTML='';const colors=['Röd',
 function refreshGroups(){const d=getStore(KEYS.groups),s=$('savedGroups'),cur=s.value;s.innerHTML='<option value="">– Sparade grupper –</option>';Object.keys(d).sort((a,b)=>a.localeCompare(b,'sv')).forEach(n=>s.add(new Option(n,n)));if(d[cur])s.value=cur}
 function saveGroups(){if(!currentGroups.length)return status('Skapa grupper först.',true);const name=$('groupSaveName').value.trim();if(!name)return status('Namnge gruppindelningen först.',true);const d=getStore(KEYS.groups);d[name]={className:currentClassName,groups:currentGroups.map(g=>[...g]),mode:$('groupMode').value,savedAt:new Date().toISOString()};setStore(KEYS.groups,d);refreshGroups();$('savedGroups').value=name;status(`Gruppindelningen "${name}" sparades lokalt.`)}
 function loadGroups(){const n=$('savedGroups').value,d=getStore(KEYS.groups)[n];if(!d)return status('Välj sparade grupper.',true);currentClassName=d.className||currentClassName;currentGroups=(d.groups||[]).map(g=>[...g]);$('groupMode').value=d.mode||'number';$('groupSaveName').value=n;renderGroups();status('Grupperna laddades.')}
-function deleteGroups(){const n=$('savedGroups').value;if(!n)return status('Välj sparade grupper.',true);const d=getStore(KEYS.groups);delete d[n];setStore(KEYS.groups,d);currentGroups=[];renderGroups();refreshGroups();status('Gruppindelningen togs bort.')}
+function deleteGroups(){
+  const n=$('savedGroups').value;
+  if(!n)return status('Välj en sparad gruppindelning att radera.',true);
+  if(!confirm(`Vill du verkligen radera gruppindelningen "${n}"?`))return;
+  const d=getStore(KEYS.groups);
+  delete d[n];
+  setStore(KEYS.groups,d);
+  currentGroups=[];
+  renderGroups();
+  refreshGroups();
+  status(`Gruppindelningen "${n}" raderades.`);
+}
 function printGroups(){
   if(!currentGroups.length)return status('Skapa eller ladda grupper först.',true);
   document.body.classList.add('print-groups');
@@ -786,7 +813,7 @@ function printGroups(){
 $('saveClass').onclick=()=>saveClass(false);$('updateClass').onclick=()=>saveClass(true);$('loadClass').onclick=loadClass;$('deleteClass').onclick=deleteClass;
 $('classNames').oninput=()=>{students=namesFromText();renderStudents();refreshWishMenus()};$('nameFormat').onchange=()=>{renderStudents();renderRoom();renderGroups()};
 $('addWish').onclick=addWish;$('templateSelect').onchange=applyTemplate;$('advancedToggle').onclick=()=>{$('advanced').hidden=!$('advanced').hidden};$('useCustom').onclick=useCustom;
-$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;
+$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
 $('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 window.addEventListener('resize',()=>document.querySelectorAll('.student').forEach(fitStudentText));
 buildSeats();renderRoom();refreshClasses();refreshPlacements();refreshGroups();refreshWishMenus();$('wishType').onchange();
