@@ -392,6 +392,48 @@ header{
   line-height:1.02 !important;
   overflow:hidden !important;
 }
+
+/* Bildsalen: 8 fyrmannabord enligt skissen */
+.artroom{
+  min-width:980px;
+  padding:48px 34px;
+  display:flex;
+  flex-direction:column;
+  gap:72px;
+}
+.artroom-row{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:48px;
+  align-items:center;
+}
+.art-table{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  grid-template-rows:1fr 1fr;
+  border:3px solid #caa16f;
+  border-radius:18px;
+  background:#f4e3cd;
+  box-shadow:0 10px 20px rgba(92,63,34,.15);
+  overflow:hidden;
+}
+.art-table .seat{
+  width:112px !important;
+  min-height:76px !important;
+  border:1px solid #cfb18d !important;
+  padding:6px !important;
+  background:rgba(255,255,255,.32) !important;
+}
+.art-table .student{
+  min-height:58px !important;
+  height:58px !important;
+  font-size:12px !important;
+}
+@media(max-width:1200px){
+  .artroom{min-width:850px;gap:54px}
+  .artroom-row{gap:30px}
+  .art-table .seat{width:96px !important}
+}
 </style>
 </head>
 <body>
@@ -441,6 +483,7 @@ header{
       <option value="u">U-placering</option>
       <option value="aula">Aulan</option>
       <option value="longtable">Långbord</option>
+      <option value="artroom">Bildsalen</option>
     </select>
     <button class="advanced-toggle" id="advancedToggle" style="margin-top:8px"><span>⚙️ Egen klassrumsmall</span><span>▾</span></button>
     <div class="advanced" id="advanced" hidden>
@@ -499,7 +542,8 @@ const templates={
   circle:{rows:1,desks:24,spots:1,layout:'circle',colGaps:[],name:'Cirkel'},
   u:{rows:1,desks:24,spots:1,layout:'u',colGaps:[],name:'U-placering'},
   aula:{rows:7,desks:10,spots:1,layout:'grid',colGaps:[],name:'Aulan'},
-  longtable:{rows:1,desks:20,spots:1,layout:'longtable',colGaps:[],name:'Långbord'}
+  longtable:{rows:1,desks:20,spots:1,layout:'longtable',colGaps:[],name:'Långbord'},
+  artroom:{rows:2,desks:4,spots:4,layout:'artroom',colGaps:[],name:'Bildsalen'}
 };
 let currentClassName='', students=[], wishes=[], cfg={...templates.friberga}, seats=[], assignments={}, dragged=null, currentGroups=[];
 
@@ -641,7 +685,7 @@ function seatEl(id){
   return el
 }
 function renderRoom(){
-  const root=$('room');root.innerHTML='';if(!['circle','u','longtable'].includes(cfg.layout)){const t=document.createElement('div');t.className='teacher';t.textContent='TAVLA / LÄRARE';root.append(t)}
+  const root=$('room');root.innerHTML='';if(!['circle','u','longtable','artroom'].includes(cfg.layout)){const t=document.createElement('div');t.className='teacher';t.textContent='TAVLA / LÄRARE';root.append(t)}
   const wrap=document.createElement('div');wrap.className=cfg.layout==='grid'?'rows':cfg.layout;
   if(cfg.layout==='grid'){
     for(let r=0;r<cfg.rows;r++){const row=document.createElement('div');row.className='seat-row';for(let d=0;d<cfg.desks;d++){const desk=document.createElement('div');desk.className='desk';if(cfg.colGaps.includes(d+1))desk.style.marginRight='42px';for(let s=0;s<cfg.spots;s++)desk.append(seatEl(`r${r}d${d}s${s}`));row.append(desk)}wrap.append(row)}
@@ -664,13 +708,26 @@ function renderRoom(){
       const left=i<half;
       const j=left?i:i-half;
       const count=left?half:Math.max(1,seats.length-half);
-
-      // Sittplatser längs bordets två långsidor.
       d.style.left=left?'25%':'75%';
       d.style.top=(7+j/Math.max(1,count-1)*86)+'%';
       d.append(seatEl(seat.id));
       wrap.append(d);
     });
+  }else if(cfg.layout==='artroom'){
+    wrap.className='artroom';
+    for(let r=0;r<2;r++){
+      const tableRow=document.createElement('div');
+      tableRow.className='artroom-row';
+      for(let d=0;d<4;d++){
+        const table=document.createElement('div');
+        table.className='art-table';
+        for(let sp=0;sp<4;sp++){
+          table.append(seatEl(`r${r}d${d}s${sp}`));
+        }
+        tableRow.append(table);
+      }
+      wrap.append(tableRow);
+    }
   }
   root.append(wrap)
 }
