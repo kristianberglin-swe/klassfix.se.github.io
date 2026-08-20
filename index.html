@@ -478,6 +478,46 @@ header{
 .art-table .seat:has(.student){
   overflow:hidden !important;
 }
+
+/* Helskärmsvisning av aktuell placering */
+.placement-fullscreen{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  background:#f7f8f5;
+  padding:18px;
+  overflow:auto;
+}
+.placement-fullscreen .fullscreen-toolbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  margin-bottom:12px;
+  padding:10px 14px;
+  border-radius:14px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 5px 18px rgba(15,23,42,.14);
+}
+.placement-fullscreen .fullscreen-title{
+  font-weight:900;
+  font-size:20px;
+}
+.placement-fullscreen .room-wrap{
+  width:100%;
+  max-width:none;
+  margin:0;
+  overflow:auto;
+}
+.placement-fullscreen .room{
+  margin:0 auto;
+}
+body.placement-view-open{
+  overflow:hidden;
+}
 </style>
 </head>
 <body>
@@ -566,7 +606,7 @@ header{
 <main class="main">
   <div class="workspace-head">
     <div><div class="title" id="placementTitle">Klassplacering</div><div class="subtitle" id="placementSubtitle">Klassrum Friberga</div></div>
-    <div class="workspace-actions row"><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
+    <div class="workspace-actions row"><button class="btn secondary" id="viewPlacement">Visa</button><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
   </div>
   <div class="saved-row" style="max-width:680px;margin-top:8px;grid-template-columns:1fr auto auto">
     <select id="savedPlacements"><option value="">– Sparade placeringar –</option></select>
@@ -911,10 +951,56 @@ function printGroups(){
   document.body.classList.remove('print-groups');
 }
 
+
+function viewPlacement(){
+  if(!seats.length)return status('Skapa eller ladda en placering först.',true);
+
+  const overlay=document.createElement('div');
+  overlay.className='placement-fullscreen';
+
+  const toolbar=document.createElement('div');
+  toolbar.className='fullscreen-toolbar';
+
+  const title=document.createElement('div');
+  title.className='fullscreen-title';
+  title.textContent=currentClassName
+    ? `Klass ${currentClassName} – ${cfg.name||'Placering'}`
+    : (cfg.name||'Placering');
+
+  const close=document.createElement('button');
+  close.className='btn primary';
+  close.type='button';
+  close.textContent='Stäng helskärm';
+
+  const roomWrap=document.createElement('div');
+  roomWrap.className='room-wrap';
+  const roomClone=$('room').cloneNode(true);
+  roomClone.removeAttribute('id');
+  roomWrap.append(roomClone);
+
+  toolbar.append(title,close);
+  overlay.append(toolbar,roomWrap);
+  document.body.append(overlay);
+  document.body.classList.add('placement-view-open');
+
+  const finish=()=>{
+    overlay.remove();
+    document.body.classList.remove('placement-view-open');
+    document.removeEventListener('keydown',esc);
+  };
+  const esc=e=>{if(e.key==='Escape')finish()};
+  close.addEventListener('click',finish);
+  document.addEventListener('keydown',esc);
+
+  if(overlay.requestFullscreen){
+    overlay.requestFullscreen().catch(()=>{});
+  }
+}
+
 $('saveClass').onclick=()=>saveClass(false);$('updateClass').onclick=()=>saveClass(true);$('loadClass').onclick=loadClass;$('deleteClass').onclick=deleteClass;
 $('classNames').oninput=()=>{students=namesFromText();renderStudents();refreshWishMenus()};$('nameFormat').onchange=()=>{renderStudents();renderRoom();renderGroups()};
 $('addWish').onclick=addWish;$('templateSelect').onchange=applyTemplate;$('advancedToggle').onclick=()=>{$('advanced').hidden=!$('advanced').hidden};$('useCustom').onclick=useCustom;
-$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
+$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('viewPlacement').onclick=viewPlacement;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
 $('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 window.addEventListener('resize',()=>document.querySelectorAll('.student').forEach(fitStudentText));
 buildSeats();renderRoom();refreshClasses();refreshPlacements();refreshGroups();refreshWishMenus();$('wishType').onchange();
