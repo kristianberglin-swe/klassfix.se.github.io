@@ -434,6 +434,50 @@ header{
   .artroom-row{gap:30px}
   .art-table .seat{width:96px !important}
 }
+
+/* Bildsalen – större bord och namnrutor så hela namnet syns */
+.artroom{
+  min-width:1280px !important;
+  padding:50px 28px !important;
+  gap:78px !important;
+}
+.artroom-row{
+  grid-template-columns:repeat(4, minmax(270px,1fr)) !important;
+  gap:42px !important;
+}
+.art-table{
+  min-width:270px !important;
+  overflow:visible !important;
+}
+.art-table .seat{
+  box-sizing:border-box !important;
+  width:100% !important;
+  min-width:0 !important;
+  min-height:92px !important;
+  padding:7px !important;
+  overflow:visible !important;
+}
+.art-table .student{
+  box-sizing:border-box !important;
+  width:100% !important;
+  min-width:0 !important;
+  height:72px !important;
+  min-height:72px !important;
+  padding:6px 5px !important;
+  font-size:12px !important;
+  line-height:1.05 !important;
+  white-space:normal !important;
+  overflow-wrap:anywhere !important;
+  word-break:normal !important;
+  overflow:hidden !important;
+  display:flex !important;
+  align-items:center !important;
+  justify-content:center !important;
+  text-align:center !important;
+}
+.art-table .seat:has(.student){
+  overflow:hidden !important;
+}
 </style>
 </head>
 <body>
