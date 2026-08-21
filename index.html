@@ -518,6 +518,47 @@ header{
 body.placement-view-open{
   overflow:hidden;
 }
+
+/* Helskärmsvisning av grupper */
+.groups-fullscreen{
+  position:fixed;
+  inset:0;
+  z-index:99999;
+  background:#f7f8f5;
+  padding:18px;
+  overflow:auto;
+}
+.groups-fullscreen .fullscreen-toolbar{
+  position:sticky;
+  top:0;
+  z-index:10;
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:16px;
+  margin-bottom:14px;
+  padding:10px 14px;
+  border-radius:14px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 5px 18px rgba(15,23,42,.14);
+}
+.groups-fullscreen .fullscreen-title{
+  font-weight:900;
+  font-size:20px;
+}
+.groups-fullscreen .groups{
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr)) !important;
+  gap:18px !important;
+}
+.groups-fullscreen .group-card{
+  padding:16px !important;
+  font-size:16px !important;
+}
+.groups-fullscreen .group-card h3{
+  font-size:20px !important;
+  margin-bottom:10px !important;
+}
+body.groups-view-open{overflow:hidden}
 </style>
 </head>
 <body>
@@ -594,7 +635,7 @@ body.placement-view-open{
     <div id="groups" class="groups"></div>
     <div class="sep"></div>
     <label>Namn på gruppindelningen</label><input id="groupSaveName" placeholder="t.ex. Laborationsgrupper vecka 34">
-    <div class="row" style="margin-top:7px"><button class="btn primary" id="saveGroups">Spara grupper</button><button class="btn secondary" id="printGroups">Skriv ut grupper</button></div>
+    <div class="row" style="margin-top:7px"><button class="btn secondary" id="viewGroups">Visa</button><button class="btn primary" id="saveGroups">Spara grupper</button><button class="btn secondary" id="printGroups">Skriv ut grupper</button></div>
     <label style="margin-top:9px">Sparade grupper</label>
     <div class="saved-row"><select id="savedGroups"><option value="">– Sparade grupper –</option></select><button class="btn secondary" id="loadGroups">Ladda</button></div>
     <button class="btn danger block" id="deleteGroups" style="margin-top:7px">Ta bort vald gruppindelning</button>
@@ -997,11 +1038,55 @@ function viewPlacement(){
   }
 }
 
+
+function viewGroups(){
+  if(!currentGroups.length)return status('Skapa eller ladda grupper först.',true);
+
+  const overlay=document.createElement('div');
+  overlay.className='groups-fullscreen';
+
+  const toolbar=document.createElement('div');
+  toolbar.className='fullscreen-toolbar';
+
+  const title=document.createElement('div');
+  title.className='fullscreen-title';
+  const savedName=$('groupSaveName')?.value?.trim();
+  title.textContent=savedName
+    ? `${savedName}${currentClassName?` – ${currentClassName}`:''}`
+    : (currentClassName?`Grupper – klass ${currentClassName}`:'Elevgrupper');
+
+  const close=document.createElement('button');
+  close.className='btn primary';
+  close.type='button';
+  close.textContent='Stäng helskärm';
+
+  const groupsClone=$('groups').cloneNode(true);
+
+  toolbar.append(title,close);
+  overlay.append(toolbar,groupsClone);
+  document.body.append(overlay);
+  document.body.classList.add('groups-view-open');
+
+  const esc=e=>{if(e.key==='Escape')finish()};
+  const finish=()=>{
+    overlay.remove();
+    document.body.classList.remove('groups-view-open');
+    document.removeEventListener('keydown',esc);
+  };
+
+  close.addEventListener('click',finish);
+  document.addEventListener('keydown',esc);
+
+  if(overlay.requestFullscreen){
+    overlay.requestFullscreen().catch(()=>{});
+  }
+}
+
 $('saveClass').onclick=()=>saveClass(false);$('updateClass').onclick=()=>saveClass(true);$('loadClass').onclick=loadClass;$('deleteClass').onclick=deleteClass;
 $('classNames').oninput=()=>{students=namesFromText();renderStudents();refreshWishMenus()};$('nameFormat').onchange=()=>{renderStudents();renderRoom();renderGroups()};
 $('addWish').onclick=addWish;$('templateSelect').onchange=applyTemplate;$('advancedToggle').onclick=()=>{$('advanced').hidden=!$('advanced').hidden};$('useCustom').onclick=useCustom;
 $('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('viewPlacement').onclick=viewPlacement;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
-$('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
+$('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('viewGroups').onclick=viewGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 window.addEventListener('resize',()=>document.querySelectorAll('.student').forEach(fitStudentText));
 buildSeats();renderRoom();refreshClasses();refreshPlacements();refreshGroups();refreshWishMenus();$('wishType').onchange();
 </script>
