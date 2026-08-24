@@ -559,6 +559,14 @@ body.placement-view-open{
   margin-bottom:10px !important;
 }
 body.groups-view-open{overflow:hidden}
+
+.name-edit-overlay{position:fixed;inset:0;z-index:100000;background:rgba(15,23,42,.48);display:flex;align-items:center;justify-content:center;padding:20px}
+.name-edit-panel{width:min(720px,96vw);max-height:88vh;overflow:auto;background:#fff;border-radius:20px;padding:20px;box-shadow:0 18px 55px rgba(15,23,42,.28)}
+.name-edit-panel h2{margin:0 0 6px}.edit-help{margin:0 0 16px;color:#64748b}.name-edit-list{display:grid;gap:9px}
+.name-edit-row{display:grid;grid-template-columns:minmax(130px,1fr) minmax(180px,1.4fr);gap:10px;align-items:center}
+.name-edit-row label{font-weight:700;font-size:13px}.name-edit-row input{width:100%;box-sizing:border-box;border:1px solid #cbd5e1;border-radius:10px;padding:9px 10px;font:inherit}
+.name-edit-actions{position:sticky;bottom:-20px;display:flex;justify-content:flex-end;gap:8px;margin:18px -20px -20px;padding:14px 20px;background:#fff;border-top:1px solid #e2e8f0}
+@media(max-width:600px){.name-edit-row{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -647,7 +655,7 @@ body.groups-view-open{overflow:hidden}
 <main class="main">
   <div class="workspace-head">
     <div><div class="title" id="placementTitle">Klassplacering</div><div class="subtitle" id="placementSubtitle">Klassrum Friberga</div></div>
-    <div class="workspace-actions row"><button class="btn secondary" id="viewPlacement">Visa</button><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
+    <div class="workspace-actions row"><button class="btn secondary" id="viewPlacement">Visa</button><button class="btn secondary" id="editPlacementNames">Redigera namn</button><button class="btn secondary" id="printPlacement">Skriv ut placering</button><button class="btn primary" id="savePlacement">Spara placering</button></div>
   </div>
   <div class="saved-row" style="max-width:680px;margin-top:8px;grid-template-columns:1fr auto auto">
     <select id="savedPlacements"><option value="">– Sparade placeringar –</option></select>
@@ -1082,10 +1090,42 @@ function viewGroups(){
   }
 }
 
+
+function editPlacementNames(){
+ const used=[...new Set(Object.values(assignments).filter(Boolean))];
+ if(!used.length)return status('Skapa eller ladda en placering först.',true);
+ const overlay=document.createElement('div');overlay.className='name-edit-overlay';
+ const panel=document.createElement('div');panel.className='name-edit-panel';
+ panel.innerHTML='<h2>Redigera namn i placeringen</h2><p class="edit-help">Ändra stavningen. Elevens plats behålls.</p>';
+ const list=document.createElement('div');list.className='name-edit-list';const inputs=[];
+ used.sort((a,b)=>a.localeCompare(b,'sv')).forEach((oldName,i)=>{
+   const row=document.createElement('div');row.className='name-edit-row';
+   const label=document.createElement('label');label.htmlFor='editName'+i;label.textContent=showName(oldName);
+   const input=document.createElement('input');input.id='editName'+i;input.value=oldName;input.dataset.oldName=oldName;inputs.push(input);
+   row.append(label,input);list.append(row);
+ });
+ const actions=document.createElement('div');actions.className='name-edit-actions';
+ const cancel=document.createElement('button');cancel.className='btn secondary';cancel.textContent='Avbryt';
+ const save=document.createElement('button');save.className='btn primary';save.textContent='Spara ändringar';
+ actions.append(cancel,save);panel.append(list,actions);overlay.append(panel);document.body.append(overlay);
+ const close=()=>overlay.remove();cancel.onclick=close;
+ save.onclick=()=>{
+   const changes=new Map();
+   for(const input of inputs){const n=input.value.trim().replace(/\s+/g,' ');if(!n)return status('Ett elevnamn får inte vara tomt.',true);changes.set(input.dataset.oldName,n)}
+   const vals=[...changes.values()].map(n=>n.toLocaleLowerCase('sv'));if(new Set(vals).size!==vals.length)return status('Två elever kan inte ha exakt samma namn.',true);
+   students=students.map(n=>changes.get(n)||n);
+   assignments=Object.fromEntries(Object.entries(assignments).map(([seat,n])=>[seat,changes.get(n)||n]));
+   $('classNames').value=students.join('\n');renderStudents();refreshWishMenus();renderRoom();
+   const selected=$('savedPlacements').value,d=getStore(KEYS.placements);
+   if(selected&&d[selected]){d[selected].students=[...students];d[selected].assignments={...assignments};d[selected].savedAt=new Date().toISOString();setStore(KEYS.placements,d)}
+   close();status('Namnen uppdaterades. Elevernas platser är oförändrade.');
+ };
+}
+
 $('saveClass').onclick=()=>saveClass(false);$('updateClass').onclick=()=>saveClass(true);$('loadClass').onclick=loadClass;$('deleteClass').onclick=deleteClass;
 $('classNames').oninput=()=>{students=namesFromText();renderStudents();refreshWishMenus()};$('nameFormat').onchange=()=>{renderStudents();renderRoom();renderGroups()};
 $('addWish').onclick=addWish;$('templateSelect').onchange=applyTemplate;$('advancedToggle').onclick=()=>{$('advanced').hidden=!$('advanced').hidden};$('useCustom').onclick=useCustom;
-$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('viewPlacement').onclick=viewPlacement;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
+$('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeats;$('viewPlacement').onclick=viewPlacement;$('editPlacementNames').onclick=editPlacementNames;$('printPlacement').onclick=printPlacement;$('savePlacement').onclick=savePlacement;$('loadPlacement').onclick=loadPlacement;$('deletePlacement').onclick=deletePlacement;
 $('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('viewGroups').onclick=viewGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 window.addEventListener('resize',()=>document.querySelectorAll('.student').forEach(fitStudentText));
 buildSeats();renderRoom();refreshClasses();refreshPlacements();refreshGroups();refreshWishMenus();$('wishType').onchange();
