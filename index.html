@@ -578,6 +578,7 @@ body.groups-view-open{overflow:hidden}
 .schedule-view .schedule-top{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;gap:10px;background:white;padding:12px;border-radius:12px;box-shadow:0 3px 12px #0002}
 .schedule-view .schedule-output{max-width:1100px;margin:18px auto;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 @media print{body.print-schedule>*:not(#schedulePrintRoot){display:none!important}#schedulePrintRoot{display:block!important;position:static!important;padding:0!important;background:white!important}#schedulePrintRoot .schedule-top button{display:none!important}}
+.gender-chip{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.gender-select{font-size:12px;padding:4px;border:1px solid #b7c6d2;border-radius:7px;max-width:110px;background:#fff;color:#182c3d}
 </style>
 </head>
 <body>
@@ -596,6 +597,7 @@ body.groups-view-open{overflow:hidden}
     <div class="sep"></div>
     <label>Visning av namn</label>
     <select id="nameFormat"><option value="full">Hela namnet</option><option value="short">Förnamn + efternamnsinitial</option></select>
+    <p class="muted" style="margin:8px 0 4px">Grupper blandas automatiskt utifrån vanliga förnamn. Osäkra namn fördelas utan antagande.</p>
     <div class="student-list" id="studentChips" style="margin-top:8px"></div>
   </div>
 
@@ -710,7 +712,7 @@ const templates={
   longtable:{rows:1,desks:20,spots:1,layout:'longtable',colGaps:[],name:'Långbord'},
   artroom:{rows:2,desks:4,spots:4,layout:'artroom',colGaps:[],name:'Bildsalen'}
 };
-let currentClassName='', students=[], wishes=[], cfg={...templates.friberga}, seats=[], assignments={}, dragged=null, currentGroups=[];
+let studentGenders={}, currentClassName='', students=[], wishes=[], cfg={...templates.friberga}, seats=[], assignments={}, dragged=null, currentGroups=[];
 
 function getStore(k){try{return JSON.parse(localStorage.getItem(k)||'{}')||{}}catch{return {}}}
 function setStore(k,v){localStorage.setItem(k,JSON.stringify(v))}
@@ -773,6 +775,7 @@ function loadClass(){
 
   currentClassName=n;
   students=[...(d.students||[])];
+  
   wishes=[...(d.wishes||[])];
   $('className').value=n;
   $('classNames').value=students.join('\n');
@@ -793,8 +796,16 @@ function loadClass(){
   updateTitle();
   status(`Klassen "${n}" laddades. Du kan nu skapa flera olika placeringar för samma klass.`);
 }
-function deleteClass(){const n=$('classSelect').value;if(!n)return status('Välj en klass.',true);const d=getStore(KEYS.classes);delete d[n];setStore(KEYS.classes,d);currentClassName='';students=[];wishes=[];$('className').value='';$('classNames').value='';refreshClasses();renderStudents();renderWishes();refreshWishMenus();status('Klassen togs bort.')}
-function renderStudents(){const b=$('studentChips');b.innerHTML='';students.forEach(n=>{const c=document.createElement('span');c.className='chip';const t=document.createElement('span');t.textContent=showName(n);const x=document.createElement('button');x.textContent='×';x.onclick=()=>{students=students.filter(s=>s!==n);wishes=wishes.filter(w=>w.student!==n&&w.other!==n);$('classNames').value=students.join('\n');renderStudents();renderWishes();refreshWishMenus()};c.append(t,x);b.append(c)})}
+function deleteClass(){const n=$('classSelect').value;if(!n)return status('Välj en klass.',true);const d=getStore(KEYS.classes);delete d[n];setStore(KEYS.classes,d);currentClassName='';students=[];studentGenders={};wishes=[];$('className').value='';$('classNames').value='';refreshClasses();renderStudents();renderWishes();refreshWishMenus();status('Klassen togs bort.')}
+function renderStudents(){
+ const b=$('studentChips');b.innerHTML='';
+ students.forEach(n=>{
+  const c=document.createElement('span');c.className='chip';
+  const t=document.createElement('span');t.textContent=showName(n);
+  const x=document.createElement('button');x.textContent='×';x.onclick=()=>{students=students.filter(v=>v!==n);wishes=wishes.filter(w=>w.student!==n&&w.other!==n);$('classNames').value=students.join('\n');renderStudents();renderWishes();refreshWishMenus()};
+  c.append(t,x);b.append(c)
+ });
+}
 function refreshWishMenus(){[$('wishStudent'),$('wishOther')].forEach(sel=>{const cur=sel.value;sel.innerHTML=new Option(sel.id==='wishStudent'?'Elev':'Andra eleven','').outerHTML;students.forEach(n=>sel.add(new Option(n,n)));if(students.includes(cur))sel.value=cur})}
 function renderWishes(){const b=$('wishList');b.innerHTML='';wishes.forEach((w,i)=>{const d=document.createElement('div');d.className='wish';d.append(document.createTextNode(wishText(w)));const x=document.createElement('button');x.textContent='×';x.onclick=()=>{wishes.splice(i,1);renderWishes()};d.append(x);b.append(d)})}
 function addWish(){const student=$('wishStudent').value,type=$('wishType').value,other=$('wishOther').value;if(!student)return status('Välj en elev.',true);if(wishNeedsOther(type)&&(!other||other===student))return status('Välj en annan elev.',true);wishes.push({student,type,other:wishNeedsOther(type)?other:null});renderWishes();status('Önskemålet lades till. Spara/uppdatera klassen för att behålla det.')}
@@ -1003,11 +1014,50 @@ function deletePlacement(){
   status(`Placeringen "${name}" raderades.`);
 }
 
+// Grov namnbaserad fördelning: enbart tydliga vanliga förnamn, inga elevprofiler.
+const girlNames=new Set(`anna emma elsa alice olivia astrid maja maia ella wilma alma vera freja saga ebba clara klara sofia sophia sara sarah ida elin ellen ester esther julia jolina josefin josephine linn linnea linnéa felicia isabella bella amanda alva nellie nelly molly moa lovisa matilda mathilda tuva tilda tilde selma stella lea leah leila laila aisha aysha fatima zahra zara yasmin jasmine jasmin noor nour amira samira maria marie eva elisabeth elizabeth helena helene karin kristina christina ingrid irma iris liv agnes ingela annika anneli sofie johanna hanna hannah rebecca rebekka maja-lisa maja-lena tyra minou meja my mia maja elina lina lina-marie cecilia camilla emilia amelie amelija amelia elvira miranda lilly lily lilja sigrid hedvig hedwig hilma nora norah norah-maj ronja lisa louise louisa sandra stina frida filippa filipina charlotte charlotta daniela diana dina nadia nadine halima hiba iman mariam maryam malak salma safiya sana sanaa sabina sabrina arwa ayla mila milena melina minna tina tea thea teresa therese viktoria victoria veronica vendela vanessa viivi viola violetta ylva yasmine zainab zeinab`.split(/\s+/));
+const boyNames=new Set(`adam alexander alex albin anton arvid axel benjamin billy casper kasper charlie christian christoffer christopher daniel david dennis edvin edward edvard elias elliot elliott elton emil erik eric fabian felix filip philip fredrik frederik gabriel gustav gustaf hugo henrik isak isaac jakob jacob joel jonas jonatan jonathan john johan johannes johnny julian kevin kim kian leon leo levi liam linus ludvig lucas lukas love malte marcus markus martin matteo matheo max maximilian melvin milo milton mohammad mohammed muhammad muhammed ahmed ahmad ali amir omar oscar oskar oliver olle otto noah nathan niklas nicolas nicholas nils pontus rasmus robin samuel sebastian simon sixten teo theo theodor theodore tim timothy tobias tom tomas thomas viktor victor viggo vincent william wille wilhelm zacharias zakarias zlatan adrian adnan abdullah abdul aziz ibrahim yusuf youssef yousef mustafa mustapha hassan hussein hussain hamza bilal mahmoud mahmud malik faris fares rayan rayyan rami sami salim samir tariq tarek tarik zayd zaid zain zayn`.split(/\s+/));
+function guessedNameGroup(full){
+ const raw=full.trim();
+ const first=raw.includes(',')?raw.split(',').slice(1).join(',').trim().split(/\s+/)[0]:raw.split(/\s+/).at(-1);
+ const key=(first||'').toLocaleLowerCase('sv').replace(/[^a-zåäöéèü-]/g,'');
+ if(girlNames.has(key)&&!boyNames.has(key))return 'girl';
+ if(boyNames.has(key)&&!girlNames.has(key))return 'boy';
+ return 'unknown';
+}
 function createGroups(){
-  if(!students.length)return status('Ladda en klass först.',true);const count=Math.min(students.length,Math.max(2,+$('groupCount').value||2)),groups=Array.from({length:count},()=>[]),ns=shuffle(students),assigned=new Set();
-  wishes.filter(w=>w.type==='together'&&w.other).forEach(w=>{if(assigned.has(w.student)||assigned.has(w.other)||!ns.includes(w.student)||!ns.includes(w.other))return;const g=groups.reduce((b,x,i)=>x.length<groups[b].length?i:b,0);groups[g].push(w.student,w.other);assigned.add(w.student);assigned.add(w.other)});
-  ns.filter(n=>!assigned.has(n)).forEach(n=>{const apart=wishes.filter(w=>w.type==='apart'&&(w.student===n||w.other===n)).map(w=>w.student===n?w.other:w.student);let opts=groups.filter(g=>!g.some(x=>apart.includes(x)));if(!opts.length)opts=groups;opts.sort((a,b)=>a.length-b.length);opts[0].push(n)});
-  currentGroups=groups;renderGroups()
+ if(!students.length)return status('Ladda en klass först.',true);
+ const count=Math.min(students.length,Math.max(2,+$('groupCount').value||2));
+ const groups=Array.from({length:count},()=>[]), assigned=new Set(), units=[];
+ wishes.filter(w=>w.type==='together'&&w.other).forEach(w=>{
+  if(assigned.has(w.student)||assigned.has(w.other)||!students.includes(w.student)||!students.includes(w.other))return;
+  units.push([w.student,w.other]);assigned.add(w.student);assigned.add(w.other);
+ });
+ shuffle(students.filter(n=>!assigned.has(n))).forEach(n=>units.push([n]));
+ const category=Object.fromEntries(students.map(n=>[n,guessedNameGroup(n)]));
+ const sizes=Array(count).fill(Math.floor(students.length/count));
+ for(let i=0;i<students.length%count;i++)sizes[i]++;
+ const totals={girl:students.filter(n=>category[n]==='girl').length,boy:students.filter(n=>category[n]==='boy').length};
+ const target={girl:totals.girl/count,boy:totals.boy/count};
+ const score=(g,unit,idx)=>{
+  const combined=[...g,...unit];
+  const girls=combined.filter(n=>category[n]==='girl').length;
+  const boys=combined.filter(n=>category[n]==='boy').length;
+  const apart=unit.some(n=>wishes.some(w=>w.type==='apart'&&((w.student===n&&g.includes(w.other))||(w.other===n&&g.includes(w.student)))));
+  const over=Math.max(0,combined.length-sizes[idx]);
+  // Prioritera jämna gruppstorlekar och undvik önskemålskonflikter.
+  return (apart?100000:0)+over*10000+Math.abs(girls-target.girl)*4+Math.abs(boys-target.boy)*4+Math.abs(girls-boys)*2+g.length*5+Math.random()*.05;
+ };
+ // Större sammanhållna enheter först, därefter de namn som går att tolka.
+ units.sort((a,b)=>b.length-a.length||b.filter(n=>category[n]!=='unknown').length-a.filter(n=>category[n]!=='unknown').length||Math.random()-.5);
+ units.forEach(unit=>{
+  const options=groups.map((g,i)=>({i,score:score(g,unit,i)}));
+  options.sort((a,b)=>a.score-b.score||groups[a.i].length-groups[b.i].length);
+  groups[options[0].i].push(...unit);
+ });
+ currentGroups=groups;renderGroups();
+ const unknown=students.filter(n=>category[n]==='unknown').length;
+ status(`Grupper skapade med försök till jämn blandning utifrån förnamn.${unknown?' '+unknown+' namn kunde inte tolkas säkert.':''}`);
 }
 function renderGroups(){currentSchedule=null;if($('scheduleOutput'))$('scheduleOutput').replaceChildren();const b=$('groups');b.innerHTML='';const colors=['Röd','Blå','Grön','Gul','Lila','Orange','Turkos','Rosa','Brun','Grå'];currentGroups.forEach((g,i)=>{const c=document.createElement('div');c.className='group-card';const h=document.createElement('h3');h.textContent=$('groupMode').value==='color'?colors[i%colors.length]:`Grupp ${i+1}`;const ul=document.createElement('ul');g.forEach(n=>{const li=document.createElement('li');li.textContent=showName(n);ul.append(li)});c.append(h,ul);b.append(c)})}
 function refreshGroups(){const d=getStore(KEYS.groups),s=$('savedGroups'),cur=s.value;s.innerHTML='<option value="">– Sparade grupper –</option>';Object.keys(d).sort((a,b)=>a.localeCompare(b,'sv')).forEach(n=>s.add(new Option(n,n)));if(d[cur])s.value=cur}
@@ -1145,9 +1195,11 @@ function editPlacementNames(){
    const changes=new Map();
    for(const input of inputs){const n=input.value.trim().replace(/\s+/g,' ');if(!n)return status('Ett elevnamn får inte vara tomt.',true);changes.set(input.dataset.oldName,n)}
    const vals=[...changes.values()].map(n=>n.toLocaleLowerCase('sv'));if(new Set(vals).size!==vals.length)return status('Två elever kan inte ha exakt samma namn.',true);
+   studentGenders=Object.fromEntries(Object.entries(studentGenders).map(([n,g])=>[changes.get(n)||n,g]));
    students=students.map(n=>changes.get(n)||n);
    assignments=Object.fromEntries(Object.entries(assignments).map(([seat,n])=>[seat,changes.get(n)||n]));
    $('classNames').value=students.join('\n');renderStudents();refreshWishMenus();renderRoom();
+   const classData=getStore(KEYS.classes);if(currentClassName&&classData[currentClassName]){classData[currentClassName].students=[...students];classData[currentClassName].genders={...studentGenders};setStore(KEYS.classes,classData)}
    const selected=$('savedPlacements').value,d=getStore(KEYS.placements);
    if(selected&&d[selected]){d[selected].students=[...students];d[selected].assignments={...assignments};d[selected].savedAt=new Date().toISOString();setStore(KEYS.placements,d)}
    close();status('Namnen uppdaterades. Elevernas platser är oförändrade.');
