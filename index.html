@@ -673,7 +673,7 @@ body.groups-view-open{overflow:hidden}
 
   <div class="group-panel" id="schedulePanel">
     <h2>Spelschema</h2>
-    <p class="muted">Använd grupperna ovan som lag. Alla lag möter varandra en gång.</p>
+    <p class="muted">Använd grupperna ovan som lag. Alla lag möter varandra en gång i <strong>varje vald sport</strong>. Välj sport separat för varje plan.</p>
     <label for="scheduleCourts">Antal planer</label>
     <select id="scheduleCourts"><option value="1">1 plan</option><option value="2">2 planer</option><option value="3">3 planer</option><option value="4">4 planer</option></select>
     <div id="courtSports" class="court-sports" aria-label="Välj sport för varje plan"></div>
@@ -1247,29 +1247,36 @@ function makeSchedule(){
  const teams=scheduleTeamNames();
  const courtSports=[...$('courtSports').querySelectorAll('select')].map(x=>x.value);
  const courtCount=courtSports.length;
- const ids=teams.map((_,i)=>i);
- if(ids.length%2)ids.push(null);
+ const sports=[...new Set(courtSports)];
+ // Varje lagpar spelar en match i VARJE vald sport, inte bara en match totalt.
+ const pending=[];
+ for(const sport of sports){
+   for(let a=0;a<teams.length;a++)for(let b=a+1;b<teams.length;b++){
+     pending.push({a:teams[a],b:teams[b],sport});
+   }
+ }
  const rounds=[];
- for(let r=0;r<ids.length-1;r++){
-   const games=[];let bye=null;
-   for(let j=0;j<ids.length/2;j++){
-     const a=ids[j],b=ids[ids.length-1-j];
-     if(a===null||b===null){bye=teams[a===null?b:a];continue}
-     games.push({a:teams[a],b:teams[b]});
+ let tick=0;
+ while(pending.length){
+   const busy=new Set(),slot=[];
+   // Rotera planprioriteten så att ingen sport systematiskt hamnar sist.
+   const order=Array.from({length:courtCount},(_,i)=>(i+tick)%courtCount);
+   for(const court of order){
+     const sport=courtSports[court];
+     const index=pending.findIndex(m=>m.sport===sport&&!busy.has(m.a)&&!busy.has(m.b));
+     if(index<0)continue;
+     const match=pending.splice(index,1)[0];
+     busy.add(match.a);busy.add(match.b);
+     slot.push({...match,court:court+1});
    }
-   // Varje omgång delas i matchtider om det finns fler matcher än planer.
-   const slots=[];
-   for(let start=0;start<games.length;start+=courtCount){
-     const chunk=games.slice(start,start+courtCount).map((game,i)=>({
-       ...game,court:i+1,sport:courtSports[i]
-     }));
-     slots.push(chunk);
-   }
-   rounds.push({slots,bye});
-   ids.splice(1,0,ids.pop());
+   slot.sort((a,b)=>a.court-b.court);
+   if(!slot.length)break;
+   rounds.push({slots:[slot],bye:null});
+   tick++;
  }
  currentSchedule={rounds,courtCount,courtSports,teams,className:currentClassName,mode:$('groupMode').value};
- renderSchedule();status('Spelschemat är klart. Varje plan har sin valda sport.');
+ renderSchedule();
+ status(`Spelschemat är klart: ${rounds.reduce((n,r)=>n+r.slots[0].length,0)} matcher i ${sports.length} sporter. Alla lag möter varandra i varje sport.`);
 }
 function scheduleMarkup(data){
  const outer=document.createElement('div');outer.className='schedule-output';
