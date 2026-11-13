@@ -579,6 +579,15 @@ body.groups-view-open{overflow:hidden}
 .schedule-view .schedule-output{max-width:1100px;margin:18px auto;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
 @media print{body.print-schedule>*:not(#schedulePrintRoot){display:none!important}#schedulePrintRoot{display:block!important;position:static!important;padding:0!important;background:white!important}#schedulePrintRoot .schedule-top button{display:none!important}}
 .gender-chip{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}.gender-select{font-size:12px;padding:4px;border:1px solid #b7c6d2;border-radius:7px;max-width:110px;background:#fff;color:#182c3d}
+
+.court-sports{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+.court-sport{display:grid;gap:5px;padding:11px;border:1px solid #d9e1e8;border-radius:12px;background:#fff}
+.court-sport label{font-weight:800;font-size:13px}
+.court-sport select{width:100%;min-width:0}
+.schedule-match{grid-template-columns:75px minmax(0,1fr)!important;align-items:start}
+.schedule-match .match-detail{display:grid;gap:3px;min-width:0}
+.schedule-match .match-sport{font-size:12px;color:#536579;font-weight:700}
+.schedule-round .schedule-time{font-size:12px;font-weight:800;color:#536579;padding:9px 3px 3px;border-top:1px solid #edf0f3}
 </style>
 </head>
 <body>
@@ -667,6 +676,7 @@ body.groups-view-open{overflow:hidden}
     <p class="muted">Använd grupperna ovan som lag. Alla lag möter varandra en gång.</p>
     <label for="scheduleCourts">Antal planer</label>
     <select id="scheduleCourts"><option value="1">1 plan</option><option value="2">2 planer</option><option value="3">3 planer</option><option value="4">4 planer</option></select>
+    <div id="courtSports" class="court-sports" aria-label="Välj sport för varje plan"></div>
     <button class="btn good block" id="makeSchedule" style="margin-top:9px">Skapa spelschema</button>
     <div class="row" style="margin-top:7px">
       <button class="btn secondary" id="viewSchedule">Visa</button>
@@ -1213,13 +1223,30 @@ $('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeat
 $('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('viewGroups').onclick=viewGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 
 let currentSchedule=null;
+const scheduleSports=['Volleyboll','Badminton','Innebandy','Handboll','Fotboll'];
+function renderCourtSports(){
+ const target=$('courtSports');
+ const old=[...target.querySelectorAll('select')].map(x=>x.value);
+ const count=Number($('scheduleCourts').value);
+ target.replaceChildren();
+ for(let i=0;i<count;i++){
+   const wrap=document.createElement('div');wrap.className='court-sport';
+   const label=document.createElement('label');label.textContent=`Plan ${i+1}`;label.htmlFor=`courtSport${i}`;
+   const sel=document.createElement('select');sel.id=`courtSport${i}`;
+   scheduleSports.forEach(s=>{const o=document.createElement('option');o.value=s;o.textContent=s;sel.append(o)});
+   sel.value=old[i]||scheduleSports[i%scheduleSports.length];
+   wrap.append(label,sel);target.append(wrap);
+ }
+}
 function scheduleTeamNames(){
  const colors=['Röd','Blå','Grön','Gul','Lila','Orange','Turkos','Rosa','Brun','Grå'];
  return currentGroups.map((g,i)=>$('groupMode').value==='color'?colors[i%colors.length]:`Grupp ${i+1}`);
 }
 function makeSchedule(){
  if(currentGroups.length<2)return status('Skapa eller ladda minst två grupper först.',true);
- const teams=scheduleTeamNames(),courtCount=Number($('scheduleCourts').value);
+ const teams=scheduleTeamNames();
+ const courtSports=[...$('courtSports').querySelectorAll('select')].map(x=>x.value);
+ const courtCount=courtSports.length;
  const ids=teams.map((_,i)=>i);
  if(ids.length%2)ids.push(null);
  const rounds=[];
@@ -1230,33 +1257,39 @@ function makeSchedule(){
      if(a===null||b===null){bye=teams[a===null?b:a];continue}
      games.push({a:teams[a],b:teams[b]});
    }
-   rounds.push({games,bye});
+   // Varje omgång delas i matchtider om det finns fler matcher än planer.
+   const slots=[];
+   for(let start=0;start<games.length;start+=courtCount){
+     const chunk=games.slice(start,start+courtCount).map((game,i)=>({
+       ...game,court:i+1,sport:courtSports[i]
+     }));
+     slots.push(chunk);
+   }
+   rounds.push({slots,bye});
    ids.splice(1,0,ids.pop());
  }
- // Lägg matcher i ordning: högst en match per lag i varje omgång.
- currentSchedule={rounds,courtCount,teams,className:currentClassName,mode:$('groupMode').value};
- renderSchedule();
- status('Spelschemat är klart.');
+ currentSchedule={rounds,courtCount,courtSports,teams,className:currentClassName,mode:$('groupMode').value};
+ renderSchedule();status('Spelschemat är klart. Varje plan har sin valda sport.');
 }
 function scheduleMarkup(data){
  const outer=document.createElement('div');outer.className='schedule-output';
- let slot=0;
+ let time=0;
  data.rounds.forEach((round,r)=>{
    const section=document.createElement('section');section.className='schedule-round';
    const heading=document.createElement('h3');heading.textContent=`Omgång ${r+1}`;section.append(heading);
-   for(let start=0;start<round.games.length;start+=data.courtCount){
-     const chunk=round.games.slice(start,start+data.courtCount);
-     slot++;
-     chunk.forEach((game,i)=>{
+   round.slots.forEach(slot=>{
+     time++;
+     const timeLabel=document.createElement('div');timeLabel.className='schedule-time';
+     timeLabel.textContent=`Matchtid ${time}`;section.append(timeLabel);
+     slot.forEach(game=>{
        const line=document.createElement('div');line.className='schedule-match';
-       const court=document.createElement('span');court.textContent=`Plan ${i+1}`;
+       const court=document.createElement('span');court.textContent=`Plan ${game.court}`;
+       const detail=document.createElement('span');detail.className='match-detail';
+       const sport=document.createElement('span');sport.className='match-sport';sport.textContent=game.sport;
        const match=document.createElement('span');match.textContent=`${game.a} – ${game.b}`;
-       line.append(court,match);section.append(line);
+       detail.append(sport,match);line.append(court,detail);section.append(line);
      });
-     if(start+data.courtCount<round.games.length){
-       const note=document.createElement('div');note.className='schedule-bye';note.textContent='Nästa matchtid';section.append(note);
-     }
-   }
+   });
    if(round.bye){const rest=document.createElement('div');rest.className='schedule-bye';rest.textContent=`Står över: ${round.bye}`;section.append(rest)}
    outer.append(section);
  });
@@ -1280,12 +1313,12 @@ function openSchedule(){
 function printSchedule(){
  const overlay=openSchedule();if(!overlay)return;
  window.print();
- // Behåll vyn så användaren kan stänga den efter utskrift.
 }
+$('scheduleCourts').onchange=()=>{renderCourtSports();currentSchedule=null;renderSchedule()};
 $('makeSchedule').onclick=makeSchedule;
 $('viewSchedule').onclick=openSchedule;
 $('printSchedule').onclick=printSchedule;
-
+renderCourtSports();
 
 /* Säkerhetskopiering – all data hanteras lokalt i webbläsaren. */
 function exportKlassfixBackup(){
