@@ -588,6 +588,26 @@ body.groups-view-open{overflow:hidden}
 .schedule-match .match-detail{display:grid;gap:3px;min-width:0}
 .schedule-match .match-sport{font-size:12px;color:#536579;font-weight:700}
 .schedule-round .schedule-time{font-size:12px;font-weight:800;color:#536579;padding:9px 3px 3px;border-top:1px solid #edf0f3}
+
+/* Tydligt presentationsläge: en omgång åt gången med tangentbordsnavigering */
+.schedule-presenter .schedule-top{z-index:5;flex-wrap:wrap}
+.schedule-presenter .schedule-nav{display:flex;gap:8px;flex-wrap:wrap}
+.schedule-presenter .schedule-nav button:disabled{opacity:.35;cursor:not-allowed}
+.schedule-presenter .schedule-counter{font-size:clamp(28px,5vw,56px);font-weight:950;text-align:center;letter-spacing:.035em;margin:24px 0 8px;color:#173b55}
+.schedule-presenter .schedule-shortcuts{text-align:center;color:#536579;font-size:13px;margin-bottom:20px}
+.schedule-presenter .schedule-current{max-width:950px;margin:0 auto}
+.schedule-presenter:not(.schedule-print-all) .schedule-current .schedule-output{display:block;max-width:none}
+.schedule-presenter .schedule-current .schedule-round{width:100%;box-sizing:border-box;padding:clamp(18px,3vw,35px);border:3px solid #173b55;box-shadow:0 10px 30px #173b5518}
+.schedule-presenter .schedule-current .schedule-round h3{font-size:clamp(23px,3vw,34px);margin-bottom:16px}
+.schedule-presenter .schedule-current .schedule-match{font-size:clamp(16px,2vw,22px);padding:14px 5px;grid-template-columns:100px minmax(0,1fr)!important}
+.schedule-presenter .schedule-current .match-sport{font-size:clamp(14px,1.6vw,18px)}
+.schedule-presenter .schedule-current .schedule-time{font-size:17px}
+.schedule-print-all .schedule-current{max-width:1100px}
+.schedule-print-all .schedule-current .schedule-output{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr))}
+.schedule-print-all .schedule-current .schedule-round{border:1px solid #d9e1e8;padding:12px}
+.schedule-print-all .schedule-current .schedule-round h3{font-size:17px}
+.schedule-print-all .schedule-current .schedule-match{font-size:13px;padding:8px 3px;grid-template-columns:75px minmax(0,1fr)!important}
+@media print{.schedule-presenter .schedule-counter,.schedule-presenter .schedule-shortcuts,.schedule-presenter .schedule-nav{display:none!important}.schedule-presenter .schedule-current .schedule-output{display:block!important}.schedule-presenter .schedule-current .schedule-round{break-inside:avoid;box-shadow:none!important;margin-bottom:12px}}
 </style>
 </head>
 <body>
@@ -1306,19 +1326,46 @@ function renderSchedule(){
  const target=$('scheduleOutput');target.replaceChildren();
  if(currentSchedule)target.append(scheduleMarkup(currentSchedule));
 }
-function openSchedule(){
+function openSchedule(options={}){
  if(!currentSchedule)return status('Skapa ett spelschema först.',true);
- const overlay=document.createElement('div');overlay.className='schedule-view';overlay.id='schedulePrintRoot';
+ const printAll=!!options.printAll;
+ const overlay=document.createElement('div');overlay.className='schedule-view schedule-presenter';overlay.id='schedulePrintRoot';
  const top=document.createElement('div');top.className='schedule-top';
- const title=document.createElement('strong');title.textContent=`Spelschema${currentSchedule.className?' – '+currentSchedule.className:''} (${currentSchedule.courtCount} planer)`;
- const close=document.createElement('button');close.className='btn primary';close.textContent='Stäng';close.onclick=()=>{overlay.remove();document.removeEventListener('keydown',escape)};
- const escape=e=>{if(e.key==='Escape')close.click()};
- top.append(title,close);overlay.append(top,scheduleMarkup(currentSchedule));
- document.body.append(overlay);document.addEventListener('keydown',escape);
+ const title=document.createElement('strong');title.textContent=`Spelschema${currentSchedule.className?' – '+currentSchedule.className:''}`;
+ const controls=document.createElement('div');controls.className='schedule-nav';
+ const prev=document.createElement('button');prev.className='btn secondary';prev.type='button';prev.textContent='← Föregående';
+ const next=document.createElement('button');next.className='btn secondary';next.type='button';next.textContent='Nästa →';
+ const close=document.createElement('button');close.className='btn primary';close.type='button';close.textContent='Stäng';
+ const counter=document.createElement('div');counter.className='schedule-counter';counter.setAttribute('aria-live','polite');
+ const help=document.createElement('div');help.className='schedule-shortcuts';help.textContent='← → Byt omgång  •  Esc Stäng';
+ const content=document.createElement('div');content.className='schedule-current';
+ let current=0;
+ const total=currentSchedule.rounds.length;
+ const allMarkup=scheduleMarkup(currentSchedule);
+ const sections=[...allMarkup.querySelectorAll('.schedule-round')];
+ const show=()=>{
+   if(printAll){counter.textContent=`Alla omgångar (${total})`;content.replaceChildren(allMarkup);return;}
+   counter.textContent=`OMGÅNG ${current+1} AV ${total}`;
+   content.replaceChildren(sections[current]);
+   prev.disabled=current===0;next.disabled=current===total-1;
+ };
+ const escape=e=>{
+   if(e.key==='Escape'){e.preventDefault();close.click();}
+   if(printAll)return;
+   if(e.key==='ArrowRight'&&current<total-1){e.preventDefault();current++;show();}
+   if(e.key==='ArrowLeft'&&current>0){e.preventDefault();current--;show();}
+ };
+ close.onclick=()=>{overlay.remove();document.removeEventListener('keydown',escape)};
+ prev.onclick=()=>{if(current>0){current--;show()}};
+ next.onclick=()=>{if(current<total-1){current++;show()}};
+ controls.append(prev,next,close);top.append(title,controls);
+ overlay.append(top,counter,help,content);document.body.append(overlay);
+ if(printAll){prev.hidden=true;next.hidden=true;help.hidden=true;overlay.classList.add('schedule-print-all')}
+ document.addEventListener('keydown',escape);show();
  return overlay;
 }
 function printSchedule(){
- const overlay=openSchedule();if(!overlay)return;
+ const overlay=openSchedule({printAll:true});if(!overlay)return;
  window.print();
 }
 $('scheduleCourts').onchange=()=>{renderCourtSports();currentSchedule=null;renderSchedule()};
