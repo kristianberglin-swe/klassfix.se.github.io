@@ -621,6 +621,38 @@ body.groups-view-open{overflow:hidden}
 @keyframes scheduleAlarmBlink{from{background:#b60018}to{background:#ff5360}}
 @media(prefers-reduced-motion:reduce){.schedule-presenter .schedule-timer-expired{animation:none}}
 @media print{.schedule-presenter .schedule-timer{display:none!important}}
+
+/* Presentationsläge: tydlig pågående omgång och separat förhandsvisning */
+.schedule-presenter:not(.schedule-print-all) .schedule-counter{
+ font-size:clamp(46px,7.5vw,108px)!important;line-height:1.04!important;
+ font-weight:1000!important;letter-spacing:.01em!important;
+ color:#102d44!important;text-shadow:0 3px 0 #dce7ee;
+ margin:24px auto 16px!important;padding:10px 16px!important;
+}
+.schedule-presenter .schedule-active-label{
+ display:block;font-size:clamp(16px,2vw,24px);font-weight:850;
+ letter-spacing:.2em;text-transform:uppercase;color:#20678c;
+ margin-bottom:10px;
+}
+.schedule-presenter .schedule-upcoming{
+ max-width:950px;margin:32px auto 28px;padding:20px 24px;
+ border:2px dashed #8d9ca8;border-radius:18px;background:#e9eef2;
+ opacity:.85;
+}
+.schedule-presenter .schedule-upcoming-heading{
+ font-size:clamp(22px,3vw,34px);font-weight:950;color:#3d5365;
+ margin:0 0 6px;
+}
+.schedule-presenter .schedule-upcoming-note{font-size:14px;font-weight:750;color:#586e7d;margin-bottom:12px}
+.schedule-presenter .schedule-upcoming .schedule-round{
+ border:1px solid #bac6d0!important;box-shadow:none!important;background:#f5f7f9;
+ padding:12px 20px!important;
+}
+.schedule-presenter .schedule-upcoming .schedule-round h3{display:none}
+.schedule-presenter .schedule-upcoming .schedule-match{font-size:16px!important;padding:8px 3px!important;grid-template-columns:85px minmax(0,1fr)!important}
+.schedule-presenter .schedule-upcoming .match-sport{font-size:13px!important}
+.schedule-presenter .schedule-upcoming .schedule-time{font-size:12px!important}
+@media print{.schedule-upcoming{display:none!important}}
 </style>
 </head>
 <body>
@@ -1352,6 +1384,7 @@ function openSchedule(options={}){
  const counter=document.createElement('div');counter.className='schedule-counter';counter.setAttribute('aria-live','polite');
  const help=document.createElement('div');help.className='schedule-shortcuts';help.textContent='← → Byt omgång  •  Esc Stäng';
  const content=document.createElement('div');content.className='schedule-current';
+ const upcoming=document.createElement('section');upcoming.className='schedule-upcoming';upcoming.setAttribute('aria-label','Nästa omgång – förhandsvisning');
  const timer=document.createElement('section');timer.className='schedule-timer';
  const timerLabel=document.createElement('label');timerLabel.textContent='Minuter per omgång';timerLabel.htmlFor='scheduleTimerMinutes';
  const minutes=document.createElement('input');minutes.id='scheduleTimerMinutes';minutes.type='number';minutes.min='1';minutes.max='180';minutes.step='1';minutes.value=String(window.klassfixTimerMinutes||5);
@@ -1382,8 +1415,19 @@ function openSchedule(options={}){
  minutes.onchange=reset;
  const show=()=>{
    if(printAll){counter.textContent=`Alla omgångar (${total})`;content.replaceChildren(allMarkup);return;}
-   counter.textContent=`OMGÅNG ${current+1} AV ${total}`;
-   content.replaceChildren(sections[current]);prev.disabled=current===0;next.disabled=current===total-1;
+   counter.replaceChildren();
+   const activeLabel=document.createElement('span');activeLabel.className='schedule-active-label';activeLabel.textContent='NUVARANDE OMGÅNG';
+   const activeNumber=document.createElement('span');activeNumber.textContent=`OMGÅNG ${current+1} AV ${total}`;
+   counter.append(activeLabel,activeNumber);
+   content.replaceChildren(sections[current]);
+   upcoming.replaceChildren();
+   if(current+1<total){
+     upcoming.hidden=false;
+     const upcomingHeading=document.createElement('h2');upcomingHeading.className='schedule-upcoming-heading';upcomingHeading.textContent=`NÄSTA OMGÅNG – ${current+2} AV ${total}`;
+     const upcomingNote=document.createElement('div');upcomingNote.className='schedule-upcoming-note';upcomingNote.textContent='Förhandsvisning – dessa matcher spelas inte ännu';
+     upcoming.append(upcomingHeading,upcomingNote,sections[current+1].cloneNode(true));
+   }else upcoming.hidden=true;
+   prev.disabled=current===0;next.disabled=current===total-1;
  };
  const changeRound=n=>{if(n<0||n>=total)return;current=n;reset();show()};
  const escape=e=>{
@@ -1398,7 +1442,7 @@ function openSchedule(options={}){
  controls.append(prev,next,close);top.append(title,controls);
  overlay.append(top,counter);
  if(!printAll)overlay.append(timer,help);
- overlay.append(content);document.body.append(overlay);
+ overlay.append(content);if(!printAll)overlay.append(upcoming);document.body.append(overlay);
  if(printAll){prev.hidden=true;next.hidden=true;help.hidden=true;overlay.classList.add('schedule-print-all')}
  document.addEventListener('keydown',escape);reset();show();
  return overlay;
