@@ -1353,7 +1353,7 @@ $('createPlacement').onclick=createPlacement;$('changeSeats').onclick=changeSeat
 $('createGroups').onclick=createGroups;$('groupMode').onchange=renderGroups;$('viewGroups').onclick=viewGroups;$('saveGroups').onclick=saveGroups;$('loadGroups').onclick=loadGroups;$('deleteGroups').onclick=deleteGroups;$('printGroups').onclick=printGroups;
 
 let currentSchedule=null;
-const scheduleSports=['Volleyboll','Badminton','Innebandy','Handboll','Fotboll'];
+const scheduleSports=['Volleyboll','Badminton','Innebandy','Handboll','Fotboll','Shuffleboard'];
 function renderCourtSports(){
  const target=$('courtSports');
  const old=[...target.querySelectorAll('select')].map(x=>x.value);
