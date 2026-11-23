@@ -616,10 +616,16 @@ body.groups-view-open{overflow:hidden}
 .schedule-presenter .schedule-timer-inputs input{width:75px;padding:8px;border:1px solid #91a5b3;border-radius:8px;font-size:17px}
 .schedule-presenter .schedule-timer-clock{font-variant-numeric:tabular-nums;font-size:clamp(54px,10vw,112px);font-weight:950;line-height:1.12;color:#173b55;letter-spacing:.035em}
 .schedule-presenter .schedule-timer-message{font-weight:900;font-size:17px;min-height:24px}
+/* Halvtid: fem gröna blinkningar; sista tio sekunderna: gult; slut: rött. */
+.schedule-presenter .schedule-timer-halfway{animation:scheduleHalfwayBlink .45s ease-in-out 5 alternate}
+.schedule-presenter .schedule-timer-warning{background:#ffe16a;border-color:#d99d00;animation:scheduleWarningBlink .6s infinite alternate}
+.schedule-presenter .schedule-timer-warning .schedule-timer-clock,.schedule-presenter .schedule-timer-warning .schedule-timer-message{color:#473000}
 .schedule-presenter .schedule-timer-expired{background:#b60018;border-color:#ff001e;animation:scheduleAlarmBlink .7s infinite alternate}
+@keyframes scheduleHalfwayBlink{from{background:#fff;border-color:#b7cbd7}to{background:#22c55e;border-color:#15803d}}
+@keyframes scheduleWarningBlink{from{background:#fff3ae;border-color:#f5c542}to{background:#ffd000;border-color:#c38a00}}
 .schedule-presenter .schedule-timer-expired .schedule-timer-clock,.schedule-presenter .schedule-timer-expired .schedule-timer-message{color:#fff}
 @keyframes scheduleAlarmBlink{from{background:#b60018}to{background:#ff5360}}
-@media(prefers-reduced-motion:reduce){.schedule-presenter .schedule-timer-expired{animation:none}}
+@media(prefers-reduced-motion:reduce){.schedule-presenter .schedule-timer-expired,.schedule-presenter .schedule-timer-warning,.schedule-presenter .schedule-timer-halfway{animation:none}}
 @media print{.schedule-presenter .schedule-timer{display:none!important}}
 
 /* Presentationsläge: tydlig pågående omgång och separat förhandsvisning */
@@ -1460,7 +1466,7 @@ function openSchedule(options={}){
  const resetBtn=document.createElement('button');resetBtn.className='btn secondary';resetBtn.textContent='Nollställ';
  const timerInputs=document.createElement('div');timerInputs.className='schedule-timer-inputs';timerInputs.append(timerLabel,minutes,startBtn,pauseBtn,resetBtn);
  timer.append(timerInputs,timerClock,timerMessage);
- let current=0,remaining=300,deadline=0,interval=null,running=false,finished=false;
+ let current=0,remaining=300,deadline=0,interval=null,running=false,finished=false,halfwayShown=false;
  const total=currentSchedule.rounds.length;
  const allMarkup=scheduleMarkup(currentSchedule);
  const sections=[...allMarkup.querySelectorAll('.schedule-round')];
@@ -1469,12 +1475,24 @@ function openSchedule(options={}){
  const display=()=>{
    const n=Math.max(0,Math.ceil(remaining));timerClock.textContent=`${String(Math.floor(n/60)).padStart(2,'0')}:${String(n%60).padStart(2,'0')}`;
    timer.classList.toggle('schedule-timer-expired',finished);
-   timerMessage.textContent=finished?'TIDEN ÄR UTE!':running?'Omgången pågår':remaining===duration()?'Redo att starta':'Pausad';
+   timer.classList.toggle('schedule-timer-warning',running&&!finished&&remaining>0&&remaining<=10);
+   if(remaining<=10)timer.classList.remove('schedule-timer-halfway');
+   timerMessage.textContent=finished?'TIDEN ÄR UTE!':running&&remaining<=10?'SNART SLUT!':running?'Omgången pågår':remaining===duration()?'Redo att starta':'Pausad';
    startBtn.disabled=running||finished;pauseBtn.disabled=!running;
  };
  const stop=()=>{if(interval!==null){clearInterval(interval);interval=null}running=false};
- const tick=()=>{if(!running)return;remaining=Math.max(0,(deadline-Date.now())/1000);if(remaining<=0){remaining=0;stop();finished=true}display()};
- const reset=()=>{stop();finished=false;minutes.value=String(Math.max(1,Math.min(180,Math.round(Number(minutes.value)||5))));window.klassfixTimerMinutes=Number(minutes.value);remaining=duration();display()};
+ const tick=()=>{if(!running)return;
+   remaining=Math.max(0,(deadline-Date.now())/1000);
+   if(!halfwayShown&&remaining<=duration()/2&&remaining>0){
+     halfwayShown=true;
+     timer.classList.remove('schedule-timer-halfway');
+     void timer.offsetWidth;
+     timer.classList.add('schedule-timer-halfway');
+   }
+   if(remaining<=0){remaining=0;stop();finished=true;timer.classList.remove('schedule-timer-halfway')}
+   display()
+ };
+ const reset=()=>{stop();finished=false;halfwayShown=false;timer.classList.remove('schedule-timer-halfway','schedule-timer-warning');minutes.value=String(Math.max(1,Math.min(180,Math.round(Number(minutes.value)||5))));window.klassfixTimerMinutes=Number(minutes.value);remaining=duration();display()};
  startBtn.onclick=()=>{if(running||finished)return;running=true;deadline=Date.now()+remaining*1000;interval=setInterval(tick,200);display()};
  pauseBtn.onclick=()=>{if(!running)return;tick();stop();display()};
  resetBtn.onclick=reset;
